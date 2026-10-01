@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spatial Audio Patch <user@local>
+Date: Fri, 2 Oct 2026 00:00:00 +0000
+Subject: [PATCH] libavfilter/af_sofalizer: enable runtime rotation and elevation commands
+
+---
+ libavfilter/af_sofalizer.c | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/libavfilter/af_sofalizer.c b/libavfilter/af_sofalizer.c
+index a1b2c3d..e4f5a6b 100644
+--- a/libavfilter/af_sofalizer.c
++++ b/libavfilter/af_sofalizer.c
+@@ -101,6 +101,7 @@ typedef struct SOFAlizerContext {
+ } SOFAlizerContext;
+ 
+ #define OFFSET(x) offsetof(SOFAlizerContext, x)
++#define TFLAGS AV_OPT_FLAG_AUDIO_PARAM|AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_RUNTIME_PARAM
+ #define FLAGS AV_OPT_FLAG_AUDIO_PARAM|AV_OPT_FLAG_FILTERING_PARAM
+ 
+ static const AVOption sofalizer_options[] = {
+@@ -108,8 +109,8 @@ static const AVOption sofalizer_options[] = {
+     { "gain",      "set gain in dB", OFFSET(gain),      AV_OPT_TYPE_FLOAT,  {.dbl = 0}, -20, 40, FLAGS },
+-   { "rotation",  "set rotation and elevation", OFFSET(rotation), AV_OPT_TYPE_FLOAT, {.dbl = 0}, -360, 360, FLAGS },
+-   { "elevation", "set rotation and elevation", OFFSET(elevation), AV_OPT_TYPE_FLOAT, {.dbl = 0}, -90, 90, FLAGS },
++   { "rotation",  "set rotation and elevation", OFFSET(rotation), AV_OPT_TYPE_FLOAT, {.dbl = 0}, -360, 360, TFLAGS },
++   { "elevation", "set rotation and elevation", OFFSET(elevation), AV_OPT_TYPE_FLOAT, {.dbl = 0}, -90, 90, TFLAGS },
+     { "radius",    "set radius",     OFFSET(radius),    AV_OPT_TYPE_FLOAT,  {.dbl = 1}, 0, 5, FLAGS },
+     { "type",      "set type",       OFFSET(type),      AV_OPT_TYPE_INT,    {.i64 = 0}, 0, 1, FLAGS, .unit = "type" },
+     { "time",      "time domain",    0,                 AV_OPT_TYPE_CONST,  {.i64 = 0}, 0, 0, FLAGS, .unit = "type" },
+@@ -1136,6 +1137,20 @@ static av_cold void uninit(AVFilterContext *ctx)
+     av_freep(&s->ringbuffer);
+ }
+ 
++static int process_command(AVFilterContext *ctx, const char *cmd, const char *args,
++                           char *res, int res_len, int flags)
++{
++    int ret = ff_filter_process_command(ctx, cmd, args, res, res_len, flags);
++    if (ret < 0)
++        return ret;
++
++    SOFAlizerContext *s = ctx->priv;
++    AVFilterLink *inlink = ctx->inputs[0];
++    return get_filter(ctx, inlink->sample_rate);
++}
++
+ const AVFilter ff_af_sofalizer = {
+     .name          = "sofalizer",
+     .description   = NULL_IF_CONFIG_SMALL("SOFAlizer binaural spatializer."),
+@@ -1144,4 +1159,5 @@ const AVFilter ff_af_sofalizer = {
+     .uninit        = uninit,
+     FILTER_INPUTS(inputs),
+     FILTER_OUTPUTS(outputs),
+     FILTER_QUERY_FUNC(query_formats),
++    .process_command = process_command,
+     .flags         = AVFILTER_FLAG_SLICE_THREADS,
+ };
+--
